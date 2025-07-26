@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../pages/home_book_detail_page.dart';
+import '../models/book_model.dart';
+import '../pages/bookdetailpage.dart';
 
 class BookSlider extends StatefulWidget {
   const BookSlider({super.key});
@@ -14,7 +15,7 @@ class BookSlider extends StatefulWidget {
 class _BookSliderState extends State<BookSlider> {
   final ScrollController _scrollController = ScrollController();
   late Timer _timer;
-  List<dynamic> books = [];
+  List<Book> books = [];
   double scrollPosition = 0;
   bool isLoading = true;
 
@@ -47,10 +48,14 @@ class _BookSliderState extends State<BookSlider> {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         if (decoded['new_novels'] != null && decoded['new_novels'] is List) {
+          final List<dynamic> booksJson = decoded['new_novels'];
+          final List<Book> newBooks = booksJson.map((json) => Book.fromJson(json)).toList();
+          
           setState(() {
-            books = decoded['new_novels'];
+            books = newBooks;
             isLoading = false;
           });
+          print('✅ Loaded ${newBooks.length} new novels');
         } else {
           print("⚠️ 'new_novels' key missing or not a list");
           setState(() => isLoading = false);
@@ -86,21 +91,13 @@ class _BookSliderState extends State<BookSlider> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         itemBuilder: (context, index) {
           final book = books[index];
-          final title = book['name'] ?? 'Untitled';
-          final rawImage = (book['image'] ?? '').toString().trim();
-          final image = 'https://classicdigitallibraries.com/public/courses/$rawImage';
 
           return GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => HomeBookDetailPage(
-                    title: title,
-                    imageUrl: image,
-                    rating: 4.0 + (index % 5) * 0.2, // Generate different ratings
-                    description: "Experience this amazing novel with rich storytelling and compelling characters. A perfect addition to your reading collection!",
-                  ),
+                  builder: (context) => BookDetailPage(book: book),
                 ),
               );
             },
@@ -125,11 +122,11 @@ class _BookSliderState extends State<BookSlider> {
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       child: Image.network(
-                        image,
+                        book.image,
                         width: double.infinity,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          print("⚠️ Failed to load image: $image");
+                          print("⚠️ Failed to load image: ${book.image}");
                           return const Icon(Icons.broken_image, color: Colors.white);
                         },
                       ),
@@ -140,7 +137,7 @@ class _BookSliderState extends State<BookSlider> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Text(
-                        title,
+                        book.title,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
